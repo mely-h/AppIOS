@@ -53,20 +53,31 @@ struct ContentView: View {
     }
 }
 
-struct Salon : Identifiable {
+class Salon: Identifiable,  ObservableObject {
     var id = UUID()
-    var nom : String
-    var theme: String
-    var nombredepersonne : Int
+    @Published var nom: String
+    @Published var theme: String
+    @Published var nombredepersonne: Int
+
+    init(nom: String, theme: String, nombredepersonne: Int) {
+        self.nom = nom
+        self.nombredepersonne = nombredepersonne
+        self.theme = theme
+    }
+    
+
+   
 }
+
+
 
 struct SalonsView: View {
     @State private var searchQuery = ""
     @State private var newSalonNom = ""
     @State private var newSalonTheme = ""
     @State private var newSalonNombreDePersonne = 0
- 
-
+    @State var selectedSalonId: UUID? = nil
+    @State private var proprieteView: Bool = false
 
     @State private var salons = [
         Salon(nom: "Salon1", theme: "Amour", nombredepersonne: 10),
@@ -83,59 +94,59 @@ struct SalonsView: View {
                     .cornerRadius(8)
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
-
-                List {
+                
+                VStack {
                     ForEach(salons.filter {
                         searchQuery.isEmpty || $0.nom.localizedCaseInsensitiveContains(searchQuery)
                     }) { salon in
-                        NavigationLink(destination: ModifView(salon: $salons[getIndex(for: salon)], salons: $salons)) {
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text(salon.nom)
-                                    Text("Thème: \(salon.theme)")
-                                    Text("Nombre de personnes: \(salon.nombredepersonne)")
+                        HStack(spacing : 10 ) {
+                            VStack(alignment: .leading) {
+                                Text(salon.nom)
+                                Text("Thème: \(salon.theme)")
+                                Text("Nombre de personnes: \(salon.nombredepersonne)")
+                            }
+                            Spacer()
+                            Button(action: {
+                                if let index = salons.firstIndex(where: { $0.id == salon.id }) {
+                                    salons.remove(at: index)
                                 }
-                                Spacer()
-                                Button(action: {
-                                    if let index = salons.firstIndex(where: { $0.id == salon.id }) {
-                                        salons.remove(at: index)
-                                    }
-                                }) {
-                                    Image(systemName: "trash")
-                                        .foregroundColor(.red)
-                                }
-
-                                Button(action: {
-                                
-                                }) {
-                                    Image(systemName: "pencil")
-                                        .foregroundColor(.blue)
-                                }
+                            }) {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                            }
+                            
+                            Button(action: {
+                                selectedSalonId = salon.id
+                                proprieteView = true
+                            }) {
+                                Image(systemName: "pencil")
+                                    .foregroundColor(.blue)
                             }
                         }
+                        .padding(12)
                     }
                 }
-                .padding(.top, 8)
-
+                .padding(.top, 16)
+                
                 VStack {
                     TextField("Nouveau Salon", text: $newSalonNom)
                         .padding(8)
                         .background(Color(.systemGray5))
                         .cornerRadius(8)
-
+                    
                     TextField("Thème", text: $newSalonTheme)
                         .padding(8)
                         .background(Color(.systemGray5))
                         .cornerRadius(8)
-
+                    
                     TextField("Nombre de personnes", value: $newSalonNombreDePersonne, formatter: NumberFormatter())
                         .padding(8)
                         .background(Color(.systemGray5))
                         .cornerRadius(8)
-
+                    
                     Button(action: {
                         let newSalon = Salon(nom: newSalonNom, theme: newSalonTheme,
-                                             nombredepersonne : newSalonNombreDePersonne)
+                                             nombredepersonne: newSalonNombreDePersonne)
                         salons.append(newSalon)
                         newSalonNom = ""
                         newSalonTheme = ""
@@ -150,65 +161,71 @@ struct SalonsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
+                
+                NavigationLink(isActive: $proprieteView) {
+                    if let selectedSalonID  = selectedSalonId,
+                       let selectedSalon = salons.first(where :{$0.id == selectedSalonID}){
+                        ModifView(salonObservable: selectedSalon, salons: $salons)
+                } else {}
+            }
+               label: {
+                    EmptyView()
+                }
             }
             .navigationTitle("Salons")
+            
+           
         }
-    }
-
-    private func getIndex(for salon: Salon) -> Int {
-        if let index = salons.firstIndex(where: { $0.id == salon.id }) {
-            return index
-        }
-        return 0
     }
 }
 
+
 struct ModifView: View {
-    @Binding var salon: Salon
+    @ObservedObject var salonObservable: Salon
     @Binding var salons: [Salon]
 
     var body: some View {
-        VStack {
-            TextField("Nom du Salon", text: $salon.nom)
-                .padding(8)
-                .background(Color(.systemGray5))
-                .cornerRadius(8)
-                .padding(.top, 16)
+          VStack {
+              TextField("Nom du Salon", text: $salonObservable.nom)
+                  .padding(8)
+                  .background(Color(.systemGray5))
+                  .cornerRadius(8)
+                  .padding(.top, 16)
 
-            TextField("Thème", text: $salon.theme)
-                .padding(8)
-                .background(Color(.systemGray5))
-                .cornerRadius(8)
-                .padding(.top, 8)
+              TextField("Thème", text: $salonObservable.theme)
+                  .padding(8)
+                  .background(Color(.systemGray5))
+                  .cornerRadius(8)
+                  .padding(.top, 8)
 
-            TextField("Nombre de personnes", value: $salon.nombredepersonne, formatter: NumberFormatter())
-                .padding(8)
-                .background(Color(.systemGray5))
-                .cornerRadius(8)
-                .padding(.top, 8)
+              TextField("Nombre de personnes", value: $salonObservable.nombredepersonne, formatter: NumberFormatter())
+                  .padding(8)
+                  .background(Color(.systemGray5))
+                  .cornerRadius(8)
+                  .padding(.top, 8)
 
-            Button(action: {
-                if let index = salons.firstIndex(where: { $0.id == salon.id }) {
-                    salons[index] = salon
-                }
-            }) {
-                
-                
-                Text("Enregistrer")
-                    .padding(8)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-            }
-            .padding(.top, 16)
-        }
-        .padding(.horizontal, 16)
-        .navigationTitle("Modifier Salon")
-    }
-}
+              Button(action: {
+                 
+                  if let index = salons.firstIndex(where: { $0.id == salonObservable.id }) {
+                      salons[index] = salonObservable
+                  }
+              }) {
+                  
+                  Text("Enregistrer")
+                      .padding(8)
+                      .background(Color.blue)
+                      .foregroundColor(.white)
+                      .cornerRadius(8)
+              }
+              .padding(.top, 16)
+          }
+          .padding(.horizontal, 16)
+          .navigationTitle("Modifier Salon")
+      }
+  }
 
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
-}
+  struct ContentView_Previews: PreviewProvider {
+      static var previews: some View {
+          ContentView()
+      }
+  }
